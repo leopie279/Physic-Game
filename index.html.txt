@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Physic Game</title>
+    <link rel="stylesheet" href="https://pyscript.net/releases/2023.11.1/core.css" />
+    <script type="module" src="https://pyscript.net/releases/2023.11.1/core.js"></script>
+    <style>
+        :root {
+            --bg-color: #050510;
+            --neon-pink: #ff007f;
+            --neon-cyan: #00f5d4;
+            --neon-yellow: #ffbe0b;
+            --neon-purple: #7b2cbf;
+            --neon-blue: #00b4d8;
+        }
+        body { 
+            margin: 0; display: flex; flex-direction: column; align-items: center; 
+            background: var(--bg-color); color: white; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            user-select: none; overflow-x: hidden;
+        }
+        
+        body::before {
+            content: ""; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: radial-gradient(circle at 50% 50%, rgba(0,245,212,0.05) 0%, rgba(5,5,16,1) 80%);
+            z-index: -1;
+        }
+
+        .hud {
+            display: flex; gap: 20px; font-size: 14px; margin: 10px 0; flex-wrap: wrap; justify-content: center;
+            background: rgba(20, 20, 40, 0.8); padding: 10px 25px; border-radius: 12px;
+            border: 1px solid rgba(0, 245, 212, 0.3); box-shadow: 0 0 15px rgba(0, 245, 212, 0.1);
+            backdrop-filter: blur(5px);
+        }
+        .hud-item { display: flex; flex-direction: column; align-items: center; }
+        .hud-label { font-size: 10px; color: #aaa; text-transform: uppercase; letter-spacing: 1px; }
+        .hud-value { font-size: 20px; font-weight: bold; text-shadow: 0 0 8px currentColor; transition: transform 0.1s;}
+        
+        .c-yellow { color: var(--neon-yellow); }
+        .c-cyan { color: var(--neon-cyan); }
+        .c-pink { color: var(--neon-pink); }
+
+        .mission-container {
+            width: 90%; max-width: 360px; background: rgba(0, 180, 216, 0.1);
+            border: 1px solid var(--neon-blue); border-radius: 8px; padding: 8px;
+            text-align: center; margin-bottom: 10px; box-shadow: 0 0 10px rgba(0, 180, 216, 0.2);
+        }
+        .mission-title { font-size: 11px; color: var(--neon-blue); font-weight: bold; letter-spacing: 1px; }
+        .mission-text { font-size: 13px; margin: 4px 0; font-weight: 500;}
+        .mission-progress-bar {
+            width: 100%; height: 6px; background: rgba(255,255,255,0.1);
+            border-radius: 3px; overflow: hidden; margin-top: 5px;
+        }
+        .mission-fill {
+            height: 100%; width: 0%; background: var(--neon-blue);
+            box-shadow: 0 0 8px var(--neon-blue); transition: width 0.3s ease, background 0.3s ease;
+        }
+
+        .controls { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; justify-content: center; }
+        
+        button {
+            padding: 10px 16px; font-size: 12px; font-weight: bold; border: 1px solid transparent; 
+            border-radius: 8px; cursor: pointer; color: white; background: rgba(255,255,255,0.1);
+            transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1); text-transform: uppercase; letter-spacing: 1px;
+        }
+        button:hover { transform: translateY(-2px); filter: brightness(1.2); }
+        button:active { transform: translateY(2px); }
+        
+        #btn-mode { border-color: var(--neon-cyan); color: var(--neon-cyan); box-shadow: 0 0 8px rgba(0,245,212,0.2); }
+        #btn-mode:hover { background: rgba(0,245,212,0.2); box-shadow: 0 0 15px rgba(0,245,212,0.5); }
+        
+        #btn-menu { border-color: var(--neon-yellow); color: var(--neon-yellow); box-shadow: 0 0 8px rgba(255,190,11,0.2); }
+        #btn-menu:hover { background: rgba(255,190,11,0.2); box-shadow: 0 0 15px rgba(255,190,11,0.5); }
+
+        .game-container { position: relative; display: inline-block; }
+        
+        canvas { 
+            background: radial-gradient(circle at 50% 0%, #151525, #050510);
+            border: 2px solid rgba(0, 245, 212, 0.4); border-radius: 12px; 
+            touch-action: none; max-width: 95vw; display: block;
+            box-shadow: 0 0 20px rgba(0, 245, 212, 0.15);
+            transition: transform 0.05s linear;
+        }
+        canvas.shake { transform: translate(3px, 3px); }
+        canvas.shake-hard { transform: translate(-6px, 5px); }
+
+        .overlay {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.9);
+            background: rgba(10, 10, 25, 0.95); padding: 30px 20px; border-radius: 15px;
+            border: 1px solid var(--neon-cyan); text-align: center; width: 280px;
+            box-shadow: 0 0 30px rgba(0, 245, 212, 0.3); backdrop-filter: blur(10px);
+            opacity: 0; pointer-events: none; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .overlay.active { opacity: 1; pointer-events: auto; transform: translate(-50%, -50%) scale(1); }
+        
+        .overlay h1 { margin: 0 0 15px 0; color: var(--neon-cyan); font-size: 26px; text-shadow: 0 0 12px var(--neon-cyan); letter-spacing: 2px;}
+        .overlay p { margin: 0 0 20px 0; font-size: 13px; color: #ccc; }
+        
+        .mode-select { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+        .btn-diff { background: rgba(255,255,255,0.05); border: 1px solid #444; padding: 12px; font-size: 13px; border-radius: 8px; color: white; transition: all 0.2s;}
+        .btn-diff:hover { background: rgba(255,255,255,0.1); }
+        .btn-diff.selected { background: rgba(0,245,212,0.2); color: var(--neon-cyan); border-color: var(--neon-cyan); box-shadow: 0 0 15px rgba(0,245,212,0.3); font-weight: bold;}
+
+        #btn-start { 
+            background: var(--neon-pink); color: white; font-size: 16px; font-weight: bold;
+            padding: 12px 20px; border-radius: 8px; width: 100%; border: none;
+            box-shadow: 0 0 15px rgba(255,0,127,0.5); transition: all 0.2s; cursor: pointer;
+        }
+        #btn-start:hover { box-shadow: 0 0 25px rgba(255,0,127,0.7); transform: translateY(-2px);}
+        #btn-start:active { transform: translateY(2px); }
+
+        .game-over-stats { text-align: left; background: rgba(0,0,0,0.4); padding: 15px; border-radius: 8px; margin-bottom: 20px; font-size: 13px; line-height: 1.8;}
+        .stat-row { display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 4px; margin-bottom: 4px;}
+        .stat-row:last-child { border-bottom: none; }
+        .rank-display { font-size: 54px; font-weight: bold; text-align: center; margin: 10px 0; text-shadow: 0 0 20px currentColor;}
+    </style>
+</head>
+<body>
+    <div class="hud">
+        <div class="hud-item c-yellow">
+            <span class="hud-label">Poin Total</span>
+            <span class="hud-value" id="score">0</span>
+        </div>
+        <div class="hud-item c-cyan">
+            <span class="hud-label">Combo</span>
+            <span class="hud-value" id="combo">0</span>
+        </div>
+        <div class="hud-item c-pink">
+            <span class="hud-label">Energi</span>
+            <span class="hud-value" id="ball-count">30</span>
+        </div>
+    </div>
+
+    <div class="mission-container">
+        <div class="mission-title">MISI KAMU</div>
+        <div class="mission-text" id="mission-text">Menyiapkan misi...</div>
+        <div class="mission-progress-bar">
+            <div class="mission-fill" id="mission-fill"></div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button id="btn-mode">Mode: Lempar 1x</button>
+        <button id="btn-menu">Menu Utama</button>
+    </div>
+    
+    <div class="game-container">
+        <div id="game-overlay" class="overlay active">
+            <h1 id="overlay-title">PHYSIC GAME</h1>
+            <p id="overlay-desc">Pilih tingkat keramaian rintangan:</p>
+            
+            <div class="mode-select" id="menu-mode-select">
+                <button class="btn-diff selected" id="diff-easy" onclick="setDiff('easy')">Santai (Normal)</button>
+                <button class="btn-diff" id="diff-hard" onclick="setDiff('hard')">Lebih Seru (Ramai & Bergerak)</button>
+            </div>
+
+            <div id="game-over-content" style="display: none;">
+                <div class="rank-display" id="go-rank">S</div>
+                <div class="game-over-stats">
+                    <div class="stat-row"><span>Poin Akhir:</span><span id="go-score" class="c-yellow">0</span></div>
+                    <div class="stat-row"><span>Max Combo:</span><span id="go-combo" class="c-cyan">0</span></div>
+                    <div class="stat-row"><span>Pantulan Bola:</span><span id="go-bounce">0</span></div>
+                    <div class="stat-row"><span>Misi Selesai:</span><span id="go-mission" class="c-pink">0 Misi</span></div>
+                </div>
+            </div>
+
+            <button id="btn-start">MULAI MAIN</button>
+        </div>
+        
+        <canvas id="gameCanvas" width="360" height="520"></canvas>
+    </div>
+
+    <script>
+        window.selectedDifficulty = 'easy';
+        function setDiff(level) {
+            window.selectedDifficulty = level;
+            document.getElementById('diff-easy').classList.toggle('selected', level === 'easy');
+            document.getElementById('diff-hard').classList.toggle('selected', level === 'hard');
+        }
+    </script>
+    <script type="py" src="./main.py"></script>
+</body>
+</html>
